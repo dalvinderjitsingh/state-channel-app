@@ -52,7 +52,7 @@ const { ethers } = require("ethers");
 */
 
 /// 📡 What chain are your contracts deployed to?
-const targetNetwork = NETWORKS.localhost; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
+const targetNetwork = NETWORKS.goerli; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // 😬 Sorry for all the console logging
 const DEBUG = true;
@@ -329,8 +329,6 @@ function App(props) {
     return window.userChannel;
   }
 
-
-  
   //This is the wisdome the client is paying for. It'd better be good.
   let recievedWisdom = "";
 
@@ -474,7 +472,17 @@ function App(props) {
        *  recreate the packed, hashed, and arrayified message from reimburseService (above),
        *  and then use ethers.utils.verifyMessage() to confirm that voucher signer was
        *  `clientAddress`. (If it wasn't, log some error message and return).
-      */
+       */
+
+      const packed = ethers.utils.solidityPack(["uint256"], [updatedBalance]);
+      const hashed = ethers.utils.keccak256(packed);
+      const arrayified = ethers.utils.arrayify(hashed);
+      let voucherSigner = ethers.utils.verifyMessage(arrayified, voucher.data.signature);
+
+      if (voucherSigner != clientAddress) {
+        console.log("Error: Voucher signer is not client address.");
+        return;
+      }
 
       const existingVoucher = vouchers()[clientAddress];
 
@@ -734,6 +742,13 @@ function App(props) {
     <div className="App">
       <Header />
       {networkDisplay}
+      <h1>
+        <u>State Channel Application</u>
+      </h1>
+      <p>
+        A state channel app where the service provider is a "Guru" who provides off-the-cuff wisdom to each client
+        "Rube" through a one-way chat box.
+      </p>
       <BrowserRouter>
         <Menu style={{ textAlign: "center" }} selectedKeys={[route]} mode="horizontal">
           <Menu.Item key="/">
@@ -800,7 +815,7 @@ function App(props) {
                         </div>
                       </Card>
 
-                      {/* Checkpoint 5:
+                      {/* Checkpoint 5: */}
                       <Button
                         style={{ margin: 5 }}
                         type="primary"
@@ -811,7 +826,7 @@ function App(props) {
                         }}
                       >
                         Cash out latest voucher
-                      </Button> */}
+                      </Button>
                     </List.Item>
                   )}
                 ></List>
@@ -853,7 +868,7 @@ function App(props) {
                         </Card>
                       </Col>
 
-                      {/* Checkpoint 6: challenge & closure
+                      {/* Checkpoint 6: challenge & closure */}
 
                       <Col span={5}>
                         <Button
@@ -887,7 +902,7 @@ function App(props) {
                         >
                           Close and withdraw funds
                         </Button>
-                      </Col> */}
+                      </Col>
                     </Row>
                   </div>
                 ) : hasClosedChannel() ? (
@@ -951,14 +966,19 @@ function App(props) {
         {faucetHint}
       </div>
 
-      <div style={{ marginTop: 32, opacity: 0.5 }}>
+      <div style={{ marginTop: 32, opacity: 1 }}>
         {/* todo: Add your address here */}
-        Created by <Address value={"Your...address"} ensProvider={mainnetProvider} fontSize={16} />
+        Created by{" "}
+        <Address value={"0x83946EaC3117ad58a1ac5D0E4fB967DC0e24c166"} ensProvider={mainnetProvider} fontSize={16} />
       </div>
 
-      <div style={{ marginTop: 32, opacity: 0.5 }}>
+      <div style={{ marginTop: 32, opacity: 1 }}>
         {/* todo: change fork location */}
-        <a target="_blank" style={{ padding: 32, color: "#000" }} href="https://github.com/scaffold-eth/scaffold-eth">
+        <a
+          target="_blank"
+          style={{ padding: 32, color: "#000" }}
+          href="https://github.com/dalvinderjitsingh/state-channel-app"
+        >
           🍴 Fork me!
         </a>
       </div>

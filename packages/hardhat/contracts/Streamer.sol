@@ -22,6 +22,13 @@ contract Streamer is Ownable {
         - updates the balances mapping with the eth received in the function call
         - emits an Opened event
         */
+
+        require(
+            balances[msg.sender] == 0,
+            "You already have a channel running"
+        );
+        balances[msg.sender] = msg.value;
+        emit Opened(msg.sender, msg.value);
     }
 
     function timeLeft(address channel) public view returns (uint256) {
@@ -29,7 +36,7 @@ contract Streamer is Ownable {
         return canCloseAt[channel] - block.timestamp;
     }
 
-    function withdrawEarnings(Voucher calldata voucher) public {
+    function withdrawEarnings(Voucher calldata voucher) public onlyOwner {
         // like the off-chain code, signatures are applied to the hash of the data
         // instead of the raw data itself
         bytes32 hashed = keccak256(abi.encode(voucher.updatedBalance));
@@ -59,6 +66,27 @@ contract Streamer is Ownable {
             - adjust the channel balance, and pay the contract owner. (Get the owner address withthe `owner()` function)
             - emit the Withdrawn event
         */
+
+        address recoveredSigner = ecrecover(
+            prefixedHashed,
+            voucher.sig.v,
+            voucher.sig.r,
+            voucher.sig.s
+        );
+
+        require(
+            balances[recoveredSigner] > voucher.updatedBalance,
+            "No new wisdom sent from Guru or Rube doesn't have enough balance."
+        );
+
+        uint256 payment = balances[recoveredSigner] - voucher.updatedBalance;
+
+        balances[recoveredSigner] = voucher.updatedBalance;
+
+        (bool sent, ) = payable(owner()).call{value: payment}("");
+        require(sent, "Failed to send Ether");
+
+        emit Withdrawn(recoveredSigner, payment);
     }
 
     /*
@@ -70,6 +98,12 @@ contract Streamer is Ownable {
     - emits a Challenged event
     */
 
+    function challengeChannel() public {
+        require(balances[msg.sender] != 0, "No channel to challenge");
+        canCloseAt[msg.sender] = block.timestamp + 30 seconds;
+        emit Challenged(msg.sender);
+    }
+
     /*
     Checkpoint 6b: Close the channel
 
@@ -79,6 +113,20 @@ contract Streamer is Ownable {
     - sends the channel's remaining funds to msg.sender, and sets the balance to 0
     - emits the Closed event
     */
+
+    function defundChannel() public {
+        require(canCloseAt[msg.sender] != 0, "No channel to close");
+        require(
+            block.timestamp > canCloseAt[msg.sender],
+            "Channel is not ready to close yet"
+        );
+        (bool sent, ) = payable(msg.sender).call{value: balances[msg.sender]}(
+            ""
+        );
+        require(sent, "Failed to send Ether");
+        balances[msg.sender] = 0;
+        emit Closed(msg.sender);
+    }
 
     struct Voucher {
         uint256 updatedBalance;
